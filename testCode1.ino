@@ -11,7 +11,12 @@ uint32_t secondStringColor = 0xC618;
 uint32_t thirdStringColor = 0xC618;
 int selectionCounter = 95;
 int pageNumber = 0;
+int32_t calScale = -1097;
+
+HX711 scale(PIN_WIRE_SDA, PIN_WIRE_SCL);
+
 void setup() {
+
   
   //initialize serial communication
   Serial.begin(115200);
@@ -43,10 +48,14 @@ void setup() {
     tft.drawString("Reset Counter", 20, 70);
     tft.drawString("Product select", 20, 90);
     mainMenu("MENU",0xffff,150,"Weight Calibration",firstStringColor,"Reset counter",secondStringColor,"Product selection",thirdStringColor);
+    
+    Serial.begin(9600);
+    scale.set_scale(-1097.f); //calibration factor 
+    scale.tare();
+      
 }
 
 void loop() {
-    
   tft.fillCircle(10, y, 3, TFT_WHITE);
   if (digitalRead(WIO_5S_DOWN) == LOW) {
     
@@ -55,22 +64,18 @@ void loop() {
     if( y > selectionCounter){
        y = 55;
       }
-    
    }
-   delay(200);
+  delay(200);
+  
   WeightCalMenu();
+  weightCalSetup();
   returnToMmenuFromWeightCal();
   resetCounterMenu();
   returnToMmenuFromResetCounterMenu();
   productSelectionMenu();
   returnToMmenuFromProductSelectionMenu();
-  Serial.println(selectionCounter);
+//  Serial.println(selectionCounter);
 }
-
-
-
-
-
 
 int mainMenu(char pageTitle[],uint32_t pageTitleColor,uint32_t titlePosition,char textline1[],uint32_t firstStringColor,char textLine2[],uint32_t secondStringColor,char textLine3[],uint32_t thirdStringColor){
   highlightSelection();
@@ -80,6 +85,7 @@ int mainMenu(char pageTitle[],uint32_t pageTitleColor,uint32_t titlePosition,cha
   else{
     selectionCounter = 95;
   }
+  
   tft.fillScreen(TFT_BLACK);
   tft.setTextSize(2);
   tft.setTextColor(pageTitleColor);
@@ -95,7 +101,6 @@ int mainMenu(char pageTitle[],uint32_t pageTitleColor,uint32_t titlePosition,cha
 }
 
 void WeightCalMenu(){
- 
   if(digitalRead(WIO_5S_PRESS) == LOW && y == 55 && pageNumber == 0){
     delay(200);
     pageNumber = 1;
@@ -104,7 +109,6 @@ void WeightCalMenu(){
 }
 
 void returnToMmenuFromWeightCal(){
-
   if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 1 && y == 75){
     delay(200);
     mainMenu("MENU",0xffff,150,"Weight Calibration",firstStringColor,"Reset counter",secondStringColor,"Product selection",thirdStringColor);
@@ -114,15 +118,14 @@ void returnToMmenuFromWeightCal(){
 }
 
 void resetCounterMenu(){
- 
   if(digitalRead(WIO_5S_PRESS) == LOW && y == 75 && pageNumber == 0){
     delay(200);
     pageNumber = 2;
     mainMenu("",0xffff,0,"Counter cleared!",firstStringColor,"back",secondStringColor,"",thirdStringColor);
   }
 }
+
 void returnToMmenuFromResetCounterMenu(){
- 
   if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 2 && y == 75){
     delay(200);
     mainMenu("MENU",0xffff,150,"Weight Calibration",firstStringColor,"Reset counter",secondStringColor,"Product selection",thirdStringColor);
@@ -132,15 +135,14 @@ void returnToMmenuFromResetCounterMenu(){
 }
 
 void productSelectionMenu(){
-
   if(digitalRead(WIO_5S_PRESS) == LOW && y == 95 && pageNumber == 0){
     delay(200);
     pageNumber = 3;
     mainMenu("Product Selection",0xffff,60,"25g",firstStringColor,"70g",secondStringColor,"back",thirdStringColor);
   }
 }
-void returnToMmenuFromProductSelectionMenu(){
 
+void returnToMmenuFromProductSelectionMenu(){
   if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 3 && y == 95){
     delay(200);
     mainMenu("MENU",0xffff,150,"Weight Calibration",firstStringColor,"Reset counter",secondStringColor,"Product selection",thirdStringColor);
@@ -150,7 +152,6 @@ void returnToMmenuFromProductSelectionMenu(){
 }
 
 void highlightSelection(){
-  
   if (y == 55){
     firstStringColor = 0xffff;
     secondStringColor = 0xC618;
@@ -170,5 +171,28 @@ void highlightSelection(){
     firstStringColor = 0xC618;
     secondStringColor = 0xC618;
     thirdStringColor = 0xC618;
+  }
+}
+
+void weightCalSetup(){
+ 
+  if(digitalRead(WIO_5S_PRESS) == LOW && y == 55 && pageNumber == 1){
+    delay(200);
+    pageNumber = 4;
+    mainMenu("Weight Calibration Setup",0xffff,10,"Begin Calibration",firstStringColor,"",secondStringColor,"",thirdStringColor);
+//    if(digitalRead(WIO_5S_PRESS) == LOW && y == 55 && pageNumber == 4){
+      Serial.print("one reading:\t");
+      Serial.print(scale.get_units(), 1);
+      Serial.print("\t| average:\t");
+      Serial.println(scale.get_units(10), 1);
+  
+      tft.setTextFont(3);
+      tft.println("Reading:\t");
+      tft.println(scale.get_units(),1);
+  
+      scale.power_down();
+      delay(1000);
+      scale.power_up();
+//    }
   }
 }
