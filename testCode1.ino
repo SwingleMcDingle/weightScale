@@ -11,12 +11,15 @@ uint32_t secondStringColor = 0xC618;
 uint32_t thirdStringColor = 0xC618;
 int selectionCounter = 95;
 int pageNumber = 0;
-int32_t calScale = -1097;
+//const int err = 1;
+//scale.set_scale(-1098);
+float calFactor = -1098;
 
 HX711 scale(PIN_WIRE_SDA, PIN_WIRE_SCL);
 
 void setup() {
-
+    
+  scale.tare();
   
   //initialize serial communication
   Serial.begin(115200);
@@ -50,9 +53,7 @@ void setup() {
     mainMenu("MENU",0xffff,150,"Weight Calibration",firstStringColor,"Reset counter",secondStringColor,"Product selection",thirdStringColor);
     
     Serial.begin(9600);
-    scale.set_scale(-1097.f); //calibration factor 
-    scale.tare();
-      
+    scale.set_scale(calFactor);
 }
 
 void loop() {
@@ -68,7 +69,10 @@ void loop() {
   delay(200);
   
   WeightCalMenu();
-  weightCalSetup();
+  weightCalSettings();
+  returnToWeightCal();
+  beginCalibration();
+  calibration();
   returnToMmenuFromWeightCal();
   resetCounterMenu();
   returnToMmenuFromResetCounterMenu();
@@ -174,25 +178,72 @@ void highlightSelection(){
   }
 }
 
-void weightCalSetup(){
- 
+void weightCalSettings(){
   if(digitalRead(WIO_5S_PRESS) == LOW && y == 55 && pageNumber == 1){
     delay(200);
     pageNumber = 4;
-    mainMenu("Weight Calibration Setup",0xffff,10,"Begin Calibration",firstStringColor,"",secondStringColor,"",thirdStringColor);
-//    if(digitalRead(WIO_5S_PRESS) == LOW && y == 55 && pageNumber == 4){
-      Serial.print("one reading:\t");
-      Serial.print(scale.get_units(), 1);
-      Serial.print("\t| average:\t");
-      Serial.println(scale.get_units(10), 1);
-  
-      tft.setTextFont(3);
-      tft.println("Reading:\t");
-      tft.println(scale.get_units(),1);
-  
-      scale.power_down();
-      delay(1000);
-      scale.power_up();
+    mainMenu("Weight Cal. Settings",0xffff,10,"Begin Calibration",firstStringColor,"Back",secondStringColor,"",thirdStringColor);
+  }
+
+////  if(digitalRead(WIO_5S_PRESS) == LOW && y == 55 && pageNumber == 4){
+//    
+//  if(digitalRead(WIO_5S_PRESS) == LOW && y == 55 && pageNumber == 4){
+////    pageNumber = 5;
+////    mainMenu("Calibrating...",0xffff,10,"",firstStringColor,"",secondStringColor,"",thirdStringColor);
+//    float tol = 0.001;
+//    float weight = 500;
+//    float new_err;
+//    float avgWeight;
+//    
+//    while(err>tol){
+//      avgWeight = scale.get_units(10),1;
+//      new_err = abs((avgWeight - weight)/weight);
+//      tft.println(avgWeight);
+//      Serial.println("Avg.Weight:\t");
+//      Serial.println(avgWeight);
+//      scale.power_down();
+//      delay(500);
+//      scale.power_up();
+//
+//      Serial.println("Error:\t");
+//      Serial.println(err);
+//      if(tol>err){
+//        tft.drawString("Calibration Complete", 0, 0);
+//        err = new_err;
+//      }
 //    }
+//  }
+}
+
+void beginCalibration(){
+  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 4 && y == 55){
+    delay(200);
+    mainMenu("",0xffff,60,"Calibration Factor:",firstStringColor,"Weight Reading",secondStringColor,"",thirdStringColor);
+    pageNumber = 5;
   }
 }
+
+void calibration(){
+  if(pageNumber == 5){
+//    tft.println(scale.set_scale(calFactor));
+    tft.setCursor(240,50);
+    tft.println(calFactor);
+    tft.setCursor(200,70);
+    tft.println(scale.get_units(),1);
+    Serial.print("Weight Reading:\t");
+    Serial.print(scale.get_units(),1);
+  
+    scale.power_down();
+    delay(1000);
+    scale.power_up();
+  }
+}
+
+void returnToWeightCal(){
+  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 4 && y == 75){
+    delay(200);
+    mainMenu("Weight Calibration",0xffff,60,"Weight Cal. settings",firstStringColor,"back",secondStringColor,"",thirdStringColor);
+    pageNumber = 1;
+    y = 55;
+  }
+} 
