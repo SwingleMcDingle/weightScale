@@ -54,9 +54,7 @@ void setup() {
     tft.drawString("Product select", 20, 90);
     mainMenu("MENU",0xffff,150,"Weight Calibration",firstStringColor,"Reset counter",secondStringColor,"Product selection",thirdStringColor);
     
-    Serial.begin(9600);
-    scale.set_scale(calFactor);  
-    calibrationMsg();  
+    Serial.begin(9600);   
 }
 
 void loop() {
@@ -82,7 +80,8 @@ void loop() {
   returnToWeightCal();
   beginCalibration();
   calibration();
-  calFactorAdj();
+//  calFactorAdj();
+  returnToBeginCalibration();
   returnToMmenuFromWeightCal();
   
   resetCounterMenu();
@@ -196,6 +195,7 @@ void highlightSelection(){
   }
 }
 
+// Calibration Menu //
 void weightCalSettings(){
   if(digitalRead(WIO_5S_PRESS) == LOW && y == 55 && pageNumber == 1){
     delay(200);
@@ -215,40 +215,47 @@ void beginCalibration(){
   }
 }
 
-void calibrationMsg(){
-  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 4 && y == 55){
-    delay(200);
-    tft.drawString("Unload scale", 50, 50);
-    delay(5000);
-  }
-}
-
 void calibration(){
   if(pageNumber == 5){
-    mainMenu("Calibrating...",0xffff,60,"Weight: ",firstStringColor,"Cal. Factor: ",secondStringColor,"",thirdStringColor);
+    mainMenu("Calibrating...",0xffff,60,"Weight: ",firstStringColor,"Cal. Factor: ",secondStringColor,"Back",thirdStringColor);
+    scale.set_scale(calFactor);
     tft.setTextSize(2);
-//    tft.setCursor(100,50);
-//    tft.println(calFactor);
     tft.setCursor(110,50);
     tft.println(scale.get_units());
     tft.setCursor(170,70);
     tft.println(calFactor);
+    
+    if(digitalRead(WIO_KEY_A) == LOW){
+      calFactor += 0.5;
+    }
+    else if(digitalRead(WIO_KEY_B) == LOW){
+      calFactor -= 0.5;
 
     scale.power_down();
     delay(100);
     scale.power_up();
   }
 }
+}
 
-void calFactorAdj(){
-  if(pageNumber == 5){
-    if(digitalRead(WIO_KEY_A) == LOW){
-      calFactor += 1;
-    }
-    else if(digitalRead(WIO_KEY_B) == LOW){
-      calFactor -= 1;
-    }
-  }  
+//void calFactorAdj(){
+//  if(pageNumber == 5){
+//    if(digitalRead(WIO_KEY_A) == LOW){
+//      calFactor += 1;
+//    }
+//    else if(digitalRead(WIO_KEY_B) == LOW){
+//      calFactor -= 1;
+//    }
+//  }  
+//}
+
+void returnToBeginCalibration(){
+  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 5 && y == 95){
+    delay(200);
+    pageNumber = 4;
+    y = 55;
+    mainMenu("Weight Cal. Settings",0xffff,10,"Begin Calibration",firstStringColor,"Back",secondStringColor,"",thirdStringColor);
+  }
 }
 
 void returnToWeightCal(){
