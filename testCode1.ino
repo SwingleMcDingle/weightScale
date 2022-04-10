@@ -11,9 +11,7 @@ uint32_t secondStringColor = 0xC618;
 uint32_t thirdStringColor = 0xC618;
 int selectionCounter = 95;
 int pageNumber = 0;
-//const int err = 1;
-//scale.set_scale(-1098);
-float calFactor = -1097;
+float calFactor = -1098;      
 unsigned int goodCounter = 0;
 unsigned int badCounter = 0;
 
@@ -195,7 +193,8 @@ void highlightSelection(){
   }
 }
 
-// Calibration Menu //
+// CALIBRATION MENU //
+
 void weightCalSettings(){
   if(digitalRead(WIO_5S_PRESS) == LOW && y == 55 && pageNumber == 1){
     delay(200);
@@ -209,7 +208,7 @@ void beginCalibration(){
     tft.fillScreen(TFT_BLACK);
     delay(200);
     tft.drawString("Unload scale", 50, 50);
-    delay(5000);
+    delay(2000);
 //    mainMenu("",0xffff,60,"Calibration Factor:",firstStringColor,"Weight Reading",secondStringColor,"",thirdStringColor);
     pageNumber = 5;
   }
@@ -237,17 +236,6 @@ void calibration(){
   }
 }
 }
-
-//void calFactorAdj(){
-//  if(pageNumber == 5){
-//    if(digitalRead(WIO_KEY_A) == LOW){
-//      calFactor += 1;
-//    }
-//    else if(digitalRead(WIO_KEY_B) == LOW){
-//      calFactor -= 1;
-//    }
-//  }  
-//}
 
 void returnToBeginCalibration(){
   if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 5 && y == 95){
@@ -281,7 +269,7 @@ void largeOoho(){
 void smallOoho(){
   if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 3 && y == 55){
     delay(200);
-    mainMenu("25g - Small Ooho",0xffff,60,"Good: ",firstStringColor,"Bad: ",secondStringColor,"Back",thirdStringColor);
+//    mainMenu("25g - Small Ooho",0xffff,60,"Good: ",firstStringColor,"Bad: ",secondStringColor,"Back",thirdStringColor);
     pageNumber = 6;
     y = 55;
   }
@@ -307,15 +295,35 @@ void backFromSmallOoho(){
 
 void Counter(){
   if(pageNumber == 6){
-    if(26.5 < scale.get_units() < 30.5){
+    mainMenu("25g - Small Ooho",0xffff,60,"Good: ",firstStringColor,"Bad: ",secondStringColor,"Back",thirdStringColor);
+    scale.set_scale(calFactor);
+    scale.get_units();
+    tft.setCursor(50, 115);
+    tft.println(scale.get_units(), 1);
+    
+    if(495 < scale.get_units() && 505 > scale.get_units()){
       goodCounter += 1;
-      tft.setCursor(150, 50);
-      tft.println(goodCounter);
+//      tft.setCursor(150, 50);
+//      tft.println(goodCounter);
+//      delay(1);
+
+      scale.power_down();
+      delay(100);
+      scale.power_up();
     }
-      else{
-        badCounter += 1;
-        tft.setCursor(150, 70);
-        tft.println(badCounter);
-      }
+    else{
+      badCounter += 1;
+//      tft.setCursor(150, 70);
+//      tft.println(badCounter);
+//      delay(1);
+      
+      scale.power_down();
+      delay(100);
+      scale.power_up();
     }
+    tft.setCursor(150, 50);
+    tft.println(goodCounter);
+    tft.setCursor(150, 70);
+    tft.println(badCounter);
+  }
 }
