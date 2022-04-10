@@ -13,7 +13,9 @@ int selectionCounter = 95;
 int pageNumber = 0;
 //const int err = 1;
 //scale.set_scale(-1098);
-float calFactor = -1098;
+float calFactor = -1097;
+unsigned int goodCounter = 0;
+unsigned int badCounter = 0;
 
 HX711 scale(PIN_WIRE_SDA, PIN_WIRE_SCL);
 
@@ -53,18 +55,25 @@ void setup() {
     mainMenu("MENU",0xffff,150,"Weight Calibration",firstStringColor,"Reset counter",secondStringColor,"Product selection",thirdStringColor);
     
     Serial.begin(9600);
-    scale.set_scale(calFactor);
+    scale.set_scale(calFactor);  
+    calibrationMsg();  
 }
 
 void loop() {
   tft.fillCircle(10, y, 3, TFT_WHITE);
   if (digitalRead(WIO_5S_DOWN) == LOW) {
-    
     y += 20;
     tft.fillCircle(10, y-20, 3, TFT_BLACK);
     if( y > selectionCounter){
        y = 55;
       }
+   }
+   if(digitalRead(WIO_5S_UP) == LOW){
+    y -= 20;
+    tft.fillCircle(10, y+20, 3, TFT_BLACK);
+    if( y < 55){
+      y = 95;
+    }
    }
   delay(200);
   
@@ -73,11 +82,20 @@ void loop() {
   returnToWeightCal();
   beginCalibration();
   calibration();
+  calFactorAdj();
   returnToMmenuFromWeightCal();
+  
   resetCounterMenu();
   returnToMmenuFromResetCounterMenu();
+  
   productSelectionMenu();
+  smallOoho();
+  largeOoho();
+  Counter();
+  backFromLargeOoho();
+  backFromSmallOoho();
   returnToMmenuFromProductSelectionMenu();
+  
 //  Serial.println(selectionCounter);
 }
 
@@ -100,7 +118,6 @@ int mainMenu(char pageTitle[],uint32_t pageTitleColor,uint32_t titlePosition,cha
   tft.drawString(textLine2, 20, 70);
   tft.setTextColor(thirdStringColor);
   tft.drawString(textLine3, 20, 90);
-
   return 0;
 }
 
@@ -142,7 +159,8 @@ void productSelectionMenu(){
   if(digitalRead(WIO_5S_PRESS) == LOW && y == 95 && pageNumber == 0){
     delay(200);
     pageNumber = 3;
-    mainMenu("Product Selection",0xffff,60,"25g",firstStringColor,"70g",secondStringColor,"back",thirdStringColor);
+    mainMenu("Product Selection",0xffff,60,"25g - Small Ooho",firstStringColor,"70g - Large Ooho",secondStringColor,"back",thirdStringColor);
+    y = 55;
   }
 }
 
@@ -184,59 +202,53 @@ void weightCalSettings(){
     pageNumber = 4;
     mainMenu("Weight Cal. Settings",0xffff,10,"Begin Calibration",firstStringColor,"Back",secondStringColor,"",thirdStringColor);
   }
-
-////  if(digitalRead(WIO_5S_PRESS) == LOW && y == 55 && pageNumber == 4){
-//    
-//  if(digitalRead(WIO_5S_PRESS) == LOW && y == 55 && pageNumber == 4){
-////    pageNumber = 5;
-////    mainMenu("Calibrating...",0xffff,10,"",firstStringColor,"",secondStringColor,"",thirdStringColor);
-//    float tol = 0.001;
-//    float weight = 500;
-//    float new_err;
-//    float avgWeight;
-//    
-//    while(err>tol){
-//      avgWeight = scale.get_units(10),1;
-//      new_err = abs((avgWeight - weight)/weight);
-//      tft.println(avgWeight);
-//      Serial.println("Avg.Weight:\t");
-//      Serial.println(avgWeight);
-//      scale.power_down();
-//      delay(500);
-//      scale.power_up();
-//
-//      Serial.println("Error:\t");
-//      Serial.println(err);
-//      if(tol>err){
-//        tft.drawString("Calibration Complete", 0, 0);
-//        err = new_err;
-//      }
-//    }
-//  }
 }
 
 void beginCalibration(){
   if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 4 && y == 55){
+    tft.fillScreen(TFT_BLACK);
     delay(200);
-    mainMenu("",0xffff,60,"Calibration Factor:",firstStringColor,"Weight Reading",secondStringColor,"",thirdStringColor);
+    tft.drawString("Unload scale", 50, 50);
+    delay(5000);
+//    mainMenu("",0xffff,60,"Calibration Factor:",firstStringColor,"Weight Reading",secondStringColor,"",thirdStringColor);
     pageNumber = 5;
+  }
+}
+
+void calibrationMsg(){
+  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 4 && y == 55){
+    delay(200);
+    tft.drawString("Unload scale", 50, 50);
+    delay(5000);
   }
 }
 
 void calibration(){
   if(pageNumber == 5){
-//    tft.println(scale.set_scale(calFactor));
-    tft.setCursor(240,50);
+    mainMenu("Calibrating...",0xffff,60,"Weight: ",firstStringColor,"Cal. Factor: ",secondStringColor,"",thirdStringColor);
+    tft.setTextSize(2);
+//    tft.setCursor(100,50);
+//    tft.println(calFactor);
+    tft.setCursor(110,50);
+    tft.println(scale.get_units());
+    tft.setCursor(170,70);
     tft.println(calFactor);
-    tft.setCursor(200,70);
-    tft.println(scale.get_units(),1);
-    Serial.print("Weight Reading:\t");
-    Serial.print(scale.get_units(),1);
-  
+
     scale.power_down();
-    delay(1000);
+    delay(100);
     scale.power_up();
   }
+}
+
+void calFactorAdj(){
+  if(pageNumber == 5){
+    if(digitalRead(WIO_KEY_A) == LOW){
+      calFactor += 1;
+    }
+    else if(digitalRead(WIO_KEY_B) == LOW){
+      calFactor -= 1;
+    }
+  }  
 }
 
 void returnToWeightCal(){
@@ -247,3 +259,56 @@ void returnToWeightCal(){
     y = 55;
   }
 } 
+
+// RECIPE MENU FUNCTIONS //
+
+void largeOoho(){
+  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 3 && y == 75){
+    delay(200);
+    mainMenu("70g - Large Ooho",0xffff,60,"Good: ",firstStringColor,"Bad: ",secondStringColor,"Back",thirdStringColor);
+    pageNumber = 7;
+    y = 55;
+  }
+}
+
+void smallOoho(){
+  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 3 && y == 55){
+    delay(200);
+    mainMenu("25g - Small Ooho",0xffff,60,"Good: ",firstStringColor,"Bad: ",secondStringColor,"Back",thirdStringColor);
+    pageNumber = 6;
+    y = 55;
+  }
+}
+
+void backFromLargeOoho(){
+  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 7 && y == 95){
+    delay(200);
+    mainMenu("Product Selection",0xffff,60,"25g",firstStringColor,"70g",secondStringColor,"Back",thirdStringColor);
+    pageNumber = 3;
+    y = 55; 
+  }
+}
+
+void backFromSmallOoho(){
+  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 6 && y == 95){
+    delay(200);
+    mainMenu("Product Selection",0xffff,60,"25g",firstStringColor,"70g",secondStringColor,"Back",thirdStringColor);
+    pageNumber = 3;
+    y = 55; 
+  }
+}
+
+void Counter(){
+  if(pageNumber == 6){
+    if(26.5 < scale.get_units() < 30.5){
+      goodCounter += 1;
+      tft.setCursor(150, 50);
+      tft.println(goodCounter);
+    }
+      else{
+        badCounter += 1;
+        tft.setCursor(150, 70);
+        tft.println(badCounter);
+      }
+    }
+}
