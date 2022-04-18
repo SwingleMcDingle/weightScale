@@ -10,16 +10,21 @@ uint32_t firstStringColor = 0xC618;
 uint32_t secondStringColor = 0xC618;
 uint32_t thirdStringColor = 0xC618;
 int selectionCounter = 95;
-int pageNumber = 0;
-float calFactor = -1098;      
+int pageNumber = 0;  
 unsigned int goodCounter = 0;
 unsigned int badCounter = 0;
 
 HX711 scale(PIN_WIRE_SDA, PIN_WIRE_SCL);
 
+#define CALWEIGHT 500
+#define DEFAULT_CALIFACTOR 0
+
+long currentOffset;
+float calibration_factor;  
+  
 void setup() {
-    
   scale.tare();
+  calibration_factor = DEFAULT_CALIFACTOR;
   
   //initialize serial communication
   Serial.begin(115200);
@@ -52,7 +57,9 @@ void setup() {
     tft.drawString("Product select", 20, 90);
     mainMenu("MENU",0xffff,150,"Weight Calibration",firstStringColor,"Reset counter",secondStringColor,"Product selection",thirdStringColor);
     
-    Serial.begin(9600);   
+    Serial.begin(9600);
+//    calibrationSetup();
+//    calibration2(); 
 }
 
 void loop() {
@@ -77,7 +84,7 @@ void loop() {
   weightCalSettings();
   returnToWeightCal();
   beginCalibration();
-  calibration();
+//  calibration();
 //  calFactorAdj();
   returnToBeginCalibration();
   returnToMmenuFromWeightCal();
@@ -88,7 +95,7 @@ void loop() {
   productSelectionMenu();
   smallOoho();
   largeOoho();
-  Counter();
+//  Counter();
   backFromLargeOoho();
   backFromSmallOoho();
   returnToMmenuFromProductSelectionMenu();
@@ -203,39 +210,138 @@ void weightCalSettings(){
   }
 }
 
-void beginCalibration(){
-  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 4 && y == 55){
+//void beginCalibration(){
+//  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 4 && y == 55){
+//    tft.fillScreen(TFT_BLACK);
+//    delay(200);
+//    tft.drawString("Unload scale", 50, 50);
+//    delay(2000);
+//    tft.fillScreen(TFT_BLACK);
+////    mainMenu("",0xffff,60,"Calibration Factor:",firstStringColor,"Weight Reading",secondStringColor,"",thirdStringColor);
+//    pageNumber = 5;
+//  }
+//}
+
+void beginCalibration() {
+    // if button is pressed (LOW) start calibiration
+  if (digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 4 && y == 55){
     tft.fillScreen(TFT_BLACK);
-    delay(200);
-    tft.drawString("Unload scale", 50, 50);
-    delay(2000);
-//    mainMenu("",0xffff,60,"Calibration Factor:",firstStringColor,"Weight Reading",secondStringColor,"",thirdStringColor);
-    pageNumber = 5;
-  }
-}
-
-void calibration(){
-  if(pageNumber == 5){
-    mainMenu("Calibrating...",0xffff,60,"Weight: ",firstStringColor,"Cal. Factor: ",secondStringColor,"Back",thirdStringColor);
-    scale.set_scale(calFactor);
     tft.setTextSize(2);
-    tft.setCursor(110,50);
-    tft.println(scale.get_units());
-    tft.setCursor(170,70);
-    tft.println(calFactor);
-    
-    if(digitalRead(WIO_KEY_A) == LOW){
-      calFactor += 0.5;
-    }
-    else if(digitalRead(WIO_KEY_B) == LOW){
-      calFactor -= 0.5;
+    tft.drawString("Clear Scale", 50, 120);
+    delay(3000);
 
-    scale.power_down();
-    delay(100);
-    scale.power_up();
-  }
+    // set tare and save value
+    scale.tare();
+    currentOffset = scale.get_offset();
+    Serial.println(currentOffset);
+    tft.fillScreen(TFT_BLACK);
+    tft.setTextSize(2);
+    tft.drawString("Place 500 g", 50, 90);
+    tft.drawString("Press Button", 50, 120);
+    tft.setCursor(50, 150);
+
+    //wait for button press
+    while (digitalRead(WIO_5S_PRESS) == HIGH);
+    Serial.println("calibirte");
+    tft.fillScreen(TFT_BLACK);
+    tft.setTextSize(2);
+    tft.drawString("Please Wait...", 50, 120);
+    // calibiation
+    boolean done = false;
+    uint8_t flipDirCount = 0;
+    int8_t direction = 1;
+    uint8_t dirScale = 100;
+    double data = abs(scale.get_units());
+    double prevData = data;
+    char runningSign[] = {'-','\\','|','/'};
+    uint8_t runningSignIdx = 0;
+    while (!done)
+    {
+      // get data
+      data = abs(scale.get_units());
+      Serial.println("data = " + String(data, 2));
+      Serial.println("prevData = " + String(prevData, 2));
+      Serial.println("abs = " + String(abs(data - CALWEIGHT), 4));
+      Serial.println("prevAbs = " + String(abs(prevData - CALWEIGHT), 4));
+      Serial.println("direction = " + String(direction));
+      Serial.println("calibration_factor = " + String(calibration_factor));
+      Serial.println("flipDirCount = " + String(flipDirCount));
+      Serial.println("dirScale = " + String(dirScale));
+      Serial.println("-------------------------------------");
+      // if not match
+      if (abs(data - CALWEIGHT) >= 0.05)
+      {
+        if (abs(data - CALWEIGHT) < abs(prevData - CALWEIGHT) && direction != 1 && data < CALWEIGHT)
+        {
+          direction = 1;
+          flipDirCount++;
+        }
+        else if (abs(data - CALWEIGHT) >= abs(prevData - CALWEIGHT) && direction != -1 && data > CALWEIGHT)
+        {
+          direction = -1;
+          flipDirCount++;
+        }
+
+        if (flipDirCount > 2)
+        {
+          if (dirScale != 1)
+          {
+            dirScale = dirScale / 100;
+            flipDirCount = 0;
+            Serial.println("dirScale = " + String(dirScale));
+          }
+        }
+        // set new factor 
+        calibration_factor += direction * dirScale;
+        scale.set_scale(calibration_factor);
+        // show still running 
+        //short delay
+        delay(5);
+        // keep old data 
+        prevData = data;
+      }
+      // if match
+      else
+      {
+        Serial.println("NEW currentOffset = " + String(currentOffset));
+        Serial.println("NEW calibration_factor = " + String(calibration_factor));
+        done = true;
+      }
+
+    } // end while
+    pageNumber == 5;
+    tft.fillScreen(TFT_BLACK);
+    tft.setCursor(20,50);
+    tft.println(calibration_factor);
+    tft.setCursor(20, 70);
+    tft.println(scale.get_units());
+    tft.setCursor(20, 90);
+    tft.println("Back");
+  } //end if button pressed
 }
-}
+
+//void calibration(){
+//  if(pageNumber == 5){
+//    mainMenu("Calibrating...",0xffff,60,"Weight: ",firstStringColor,"Cal. Factor: ",secondStringColor,"Back",thirdStringColor);
+//    scale.set_scale(calFactor);
+//    tft.setTextSize(2);
+//    tft.setCursor(110,50);
+//    tft.println(scale.get_units());
+//    tft.setCursor(170,70);
+//    tft.println(calFactor);
+//    
+//    if(digitalRead(WIO_KEY_A) == LOW){
+//      calFactor += 0.5;
+//    }
+//    else if(digitalRead(WIO_KEY_B) == LOW){
+//      calFactor -= 0.5;
+//
+//    scale.power_down();
+//    delay(100);
+//    scale.power_up();
+//  }
+//}
+//}
 
 void returnToBeginCalibration(){
   if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 5 && y == 95){
@@ -292,38 +398,38 @@ void backFromSmallOoho(){
     y = 55; 
   }
 }
-
-void Counter(){
-  if(pageNumber == 6){
-    mainMenu("25g - Small Ooho",0xffff,60,"Good: ",firstStringColor,"Bad: ",secondStringColor,"Back",thirdStringColor);
-    scale.set_scale(calFactor);
-    scale.get_units();
-    tft.setCursor(50, 115);
-    tft.println(scale.get_units(), 1);
-    
-    if(495 < scale.get_units() && 505 > scale.get_units()){
-      goodCounter += 1;
-//      tft.setCursor(150, 50);
-//      tft.println(goodCounter);
-//      delay(1);
-
-      scale.power_down();
-      delay(100);
-      scale.power_up();
-    }
-    else{
-      badCounter += 1;
-//      tft.setCursor(150, 70);
-//      tft.println(badCounter);
-//      delay(1);
-      
-      scale.power_down();
-      delay(100);
-      scale.power_up();
-    }
-    tft.setCursor(150, 50);
-    tft.println(goodCounter);
-    tft.setCursor(150, 70);
-    tft.println(badCounter);
-  }
-}
+//
+//void Counter(){
+//  if(pageNumber == 6){
+//    mainMenu("25g - Small Ooho",0xffff,60,"Good: ",firstStringColor,"Bad: ",secondStringColor,"Back",thirdStringColor);
+//    scale.set_scale(calFactor);
+//    scale.get_units();
+//    tft.setCursor(50, 115);
+//    tft.println(scale.get_units(), 1);
+//    
+//    if(495 < scale.get_units() && 505 > scale.get_units()){
+//      goodCounter += 1;
+////      tft.setCursor(150, 50);
+////      tft.println(goodCounter);
+////      delay(1);
+//
+//      scale.power_down();
+//      delay(100);
+//      scale.power_up();
+//    }
+//    else{
+//      badCounter += 1;
+////      tft.setCursor(150, 70);
+////      tft.println(badCounter);
+////      delay(1);
+//      
+//      scale.power_down();
+//      delay(100);
+//      scale.power_up();
+//    }
+//    tft.setCursor(150, 50);
+//    tft.println(goodCounter);
+//    tft.setCursor(150, 70);
+//    tft.println(badCounter);
+//  }
+//}
