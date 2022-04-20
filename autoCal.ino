@@ -262,7 +262,7 @@ void loop() {
     boolean done = false;
     uint8_t flipDirCount = 0;
     int8_t direction = 1;
-    uint8_t dirScale = 100;
+    float dirScale = 100;
     double data = abs(scale.get_units());
     double prevData = data;
     char runningSign[] = {'-','\\','|','/'};
@@ -271,17 +271,16 @@ void loop() {
     {
       // get data
       data = abs(scale.get_units());
-      Serial.println("data = " + String(data, 2));
-      Serial.println("prevData = " + String(prevData, 2));
-      Serial.println("abs = " + String(abs(data - CALWEIGHT), 4));
-      Serial.println("prevAbs = " + String(abs(prevData - CALWEIGHT), 4));
+      Serial.println("data = " + String(abs(scale.get_units())));
+      Serial.println("data - calWeight = " + String(abs(data - CALWEIGHT),5));
+      Serial.println("prevData - calWeight = " + String(abs(prevData - CALWEIGHT),5));
       Serial.println("direction = " + String(direction));
       Serial.println("calibration_factor = " + String(calibration_factor));
       Serial.println("flipDirCount = " + String(flipDirCount));
       Serial.println("dirScale = " + String(dirScale));
       Serial.println("-------------------------------------");
       // if not match
-      if (abs(data - CALWEIGHT) >= 0.01)
+      if (abs(data - CALWEIGHT) >= 0.001)
       {
         if (abs(data - CALWEIGHT) < abs(prevData - CALWEIGHT) && direction != 1 && data < CALWEIGHT)
         {
@@ -293,12 +292,21 @@ void loop() {
           direction = -1;
           flipDirCount++;
         }
-
+        else if (abs(data - CALWEIGHT) >= abs(prevData - CALWEIGHT) && direction != 1 && data < CALWEIGHT)
+        {
+          direction = 1;
+          flipDirCount++;
+        }
+        else if (abs(data - CALWEIGHT) < abs(prevData - CALWEIGHT) && direction != -1 && data > CALWEIGHT)
+        {
+          direction = -1;
+          flipDirCount++;
+        }
         if (flipDirCount > 2)
         {
-          if (dirScale != 1)
+          if (dirScale != 0.1)
           {
-            dirScale = dirScale / 100;
+            dirScale = dirScale / 10;
             flipDirCount = 0;
             Serial.println("dirScale = " + String(dirScale));
           }
