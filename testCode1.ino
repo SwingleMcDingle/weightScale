@@ -58,8 +58,6 @@ void setup() {
     mainMenu("MENU",0xffff,150,"Weight Calibration",firstStringColor,"Reset counter",secondStringColor,"Product selection",thirdStringColor);
     
     Serial.begin(9600);
-//    calibrationSetup();
-//    calibration2(); 
 }
 
 void loop() {
@@ -84,9 +82,12 @@ void loop() {
   weightCalSettings();
   returnToWeightCal();
   beginCalibration();
-//  calibration();
-//  calFactorAdj();
+  weightTest();
+  Weight();
+//  liveWeight();
+  returnFromCalError();
   returnToBeginCalibration();
+  returnToWeightCalSettings();
   returnToMmenuFromWeightCal();
   
   resetCounterMenu();
@@ -95,7 +96,7 @@ void loop() {
   productSelectionMenu();
   smallOoho();
   largeOoho();
-//  Counter();
+  Counter();
   backFromLargeOoho();
   backFromSmallOoho();
   returnToMmenuFromProductSelectionMenu();
@@ -205,22 +206,11 @@ void highlightSelection(){
 void weightCalSettings(){
   if(digitalRead(WIO_5S_PRESS) == LOW && y == 55 && pageNumber == 1){
     delay(200);
+    mainMenu("Weight Cal. Settings",0xffff,10,"Begin Calibration",firstStringColor,"Weight Test",secondStringColor,"Back",thirdStringColor);
     pageNumber = 4;
-    mainMenu("Weight Cal. Settings",0xffff,10,"Begin Calibration",firstStringColor,"Back",secondStringColor,"",thirdStringColor);
+    y = 55;
   }
 }
-
-//void beginCalibration(){
-//  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 4 && y == 55){
-//    tft.fillScreen(TFT_BLACK);
-//    delay(200);
-//    tft.drawString("Unload scale", 50, 50);
-//    delay(2000);
-//    tft.fillScreen(TFT_BLACK);
-////    mainMenu("",0xffff,60,"Calibration Factor:",firstStringColor,"Weight Reading",secondStringColor,"",thirdStringColor);
-//    pageNumber = 5;
-//  }
-//}
 
 void beginCalibration() {
     // if button is pressed (LOW) start calibiration
@@ -250,26 +240,28 @@ void beginCalibration() {
     boolean done = false;
     uint8_t flipDirCount = 0;
     int8_t direction = 1;
-    uint8_t dirScale = 100;
+    uint8_t iter = 0;
+    float dirScale = 100;
     double data = abs(scale.get_units());
     double prevData = data;
-    char runningSign[] = {'-','\\','|','/'};
     uint8_t runningSignIdx = 0;
     while (!done)
     {
       // get data
       data = abs(scale.get_units());
-      Serial.println("data = " + String(data, 2));
-      Serial.println("prevData = " + String(prevData, 2));
-      Serial.println("abs = " + String(abs(data - CALWEIGHT), 4));
-      Serial.println("prevAbs = " + String(abs(prevData - CALWEIGHT), 4));
+      Serial.println("data = " + String(abs(scale.get_units())));
+      Serial.println("data - calWeight = " + String(abs(data - CALWEIGHT),5));
+      Serial.println("prevData - calWeight = " + String(abs(prevData - CALWEIGHT),5));
       Serial.println("direction = " + String(direction));
       Serial.println("calibration_factor = " + String(calibration_factor));
       Serial.println("flipDirCount = " + String(flipDirCount));
       Serial.println("dirScale = " + String(dirScale));
+      Serial.println("iter = " + String(iter));
       Serial.println("-------------------------------------");
       // if not match
-      if (abs(data - CALWEIGHT) >= 0.05)
+      iter += 1;
+      
+      if (abs(data - CALWEIGHT) >= 0.005)
       {
         if (abs(data - CALWEIGHT) < abs(prevData - CALWEIGHT) && direction != 1 && data < CALWEIGHT)
         {
@@ -281,12 +273,22 @@ void beginCalibration() {
           direction = -1;
           flipDirCount++;
         }
-
+        else if (abs(data - CALWEIGHT) >= abs(prevData - CALWEIGHT) && direction != 1 && data < CALWEIGHT)
+        {
+          direction = 1;
+          flipDirCount++;
+        }
+        else if (abs(data - CALWEIGHT) < abs(prevData - CALWEIGHT) && direction != -1 && data > CALWEIGHT)
+        {
+          direction = -1;
+          flipDirCount++;
+        }
+        
         if (flipDirCount > 2)
         {
-          if (dirScale != 1)
+          if (dirScale != 0.01)
           {
-            dirScale = dirScale / 100;
+            dirScale = dirScale / 10;
             flipDirCount = 0;
             Serial.println("dirScale = " + String(dirScale));
           }
@@ -299,63 +301,92 @@ void beginCalibration() {
         delay(5);
         // keep old data 
         prevData = data;
+
+        //error if iteration exceeds 100
+        if(iter > 100){
+          delay(200);
+          done = true;
+          tft.fillScreen(TFT_BLACK);
+          mainMenu("ERROR", 0xffff, 50,"Calibration Error",firstStringColor,"Reset",secondStringColor,"",thirdStringColor);
+          pageNumber = 7;
+          y = 55;
+        }
       }
+
       // if match
       else
       {
         Serial.println("NEW currentOffset = " + String(currentOffset));
         Serial.println("NEW calibration_factor = " + String(calibration_factor));
         done = true;
+        delay(200);
+        tft.fillScreen(TFT_BLACK);
+        mainMenu("Calibration Complete", 0xffff,50,"Cal.Factor: ",firstStringColor,"Weight: ",secondStringColor,"Back",thirdStringColor);
+        pageNumber = 5;
+        y = 55;
+        tft.setCursor(170,50);
+        tft.println(calibration_factor);
+        tft.setCursor(110, 70);
+        tft.println(data);
       }
 
     } // end while
-    pageNumber == 5;
-    tft.fillScreen(TFT_BLACK);
-    tft.setCursor(20,50);
-    tft.println(calibration_factor);
-    tft.setCursor(20, 70);
-    tft.println(scale.get_units());
-    tft.setCursor(20, 90);
-    tft.println("Back");
   } //end if button pressed
 }
 
-//void calibration(){
-//  if(pageNumber == 5){
-//    mainMenu("Calibrating...",0xffff,60,"Weight: ",firstStringColor,"Cal. Factor: ",secondStringColor,"Back",thirdStringColor);
-//    scale.set_scale(calFactor);
-//    tft.setTextSize(2);
-//    tft.setCursor(110,50);
-//    tft.println(scale.get_units());
-//    tft.setCursor(170,70);
-//    tft.println(calFactor);
-//    
-//    if(digitalRead(WIO_KEY_A) == LOW){
-//      calFactor += 0.5;
-//    }
-//    else if(digitalRead(WIO_KEY_B) == LOW){
-//      calFactor -= 0.5;
-//
-//    scale.power_down();
-//    delay(100);
-//    scale.power_up();
-//  }
-//}
-//}
+void returnFromCalError(){
+  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 7 && y == 75){
+    delay(200);
+    mainMenu("Weight Cal. Settings",0xffff,10,"Begin Calibration",firstStringColor,"Weight Test",secondStringColor,"Back",thirdStringColor);
+    pageNumber = 4;
+    y = 55;
+  }
+}
 
 void returnToBeginCalibration(){
   if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 5 && y == 95){
     delay(200);
+    mainMenu("Weight Cal. Settings",0xffff,10,"Begin Calibration",firstStringColor,"Weight Test",secondStringColor,"Back",thirdStringColor);
     pageNumber = 4;
     y = 55;
-    mainMenu("Weight Cal. Settings",0xffff,10,"Begin Calibration",firstStringColor,"Back",secondStringColor,"",thirdStringColor);
+  }
+}
+
+void weightTest(){
+  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 4 && y == 75){
+    delay(200);
+    mainMenu("Weight Test",0xffff,10,"Weight: ",firstStringColor,"Back",secondStringColor,"",thirdStringColor);
+    pageNumber = 6;
+    y = 55;
+  }
+}
+
+void Weight(){
+  if (pageNumber == 6){
+    tft.setCursor(110, 50);
+    tft.println(abs(scale.get_units()));
+
+    scale.power_down();
+    delay(500);
+    scale.power_up();
+    Serial.print("cal.factor = " + String(calibration_factor));
+    tft.fillRect(110,50,100,20,TFT_BLACK);
+  }
+}
+
+void returnToWeightCalSettings(){
+  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 6){
+    delay(200);
+    mainMenu("Weight Cal. Settings",0xffff,10,"Begin Calibration",firstStringColor,"Weight Test",secondStringColor,"Back",thirdStringColor);
+    pageNumber = 4;
+    y = 55;
   }
 }
 
 void returnToWeightCal(){
-  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 4 && y == 75){
+  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 4 && y == 95){
     delay(200);
-    mainMenu("Weight Calibration",0xffff,60,"Weight Cal. settings",firstStringColor,"back",secondStringColor,"",thirdStringColor);
+    mainMenu("Weight Calibration",0xffff,60,"Weight Cal. settings",firstStringColor,"Back",secondStringColor,"",thirdStringColor);
     pageNumber = 1;
     y = 55;
   }
@@ -367,7 +398,7 @@ void largeOoho(){
   if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 3 && y == 75){
     delay(200);
     mainMenu("70g - Large Ooho",0xffff,60,"Good: ",firstStringColor,"Bad: ",secondStringColor,"Back",thirdStringColor);
-    pageNumber = 7;
+    pageNumber = 8;
     y = 55;
   }
 }
@@ -376,13 +407,13 @@ void smallOoho(){
   if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 3 && y == 55){
     delay(200);
 //    mainMenu("25g - Small Ooho",0xffff,60,"Good: ",firstStringColor,"Bad: ",secondStringColor,"Back",thirdStringColor);
-    pageNumber = 6;
+    pageNumber = 9;
     y = 55;
   }
 }
 
 void backFromLargeOoho(){
-  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 7 && y == 95){
+  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 8 && y == 95){
     delay(200);
     mainMenu("Product Selection",0xffff,60,"25g",firstStringColor,"70g",secondStringColor,"Back",thirdStringColor);
     pageNumber = 3;
@@ -391,45 +422,45 @@ void backFromLargeOoho(){
 }
 
 void backFromSmallOoho(){
-  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 6 && y == 95){
+  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 9 && y == 95){
     delay(200);
     mainMenu("Product Selection",0xffff,60,"25g",firstStringColor,"70g",secondStringColor,"Back",thirdStringColor);
     pageNumber = 3;
     y = 55; 
   }
 }
-//
-//void Counter(){
-//  if(pageNumber == 6){
-//    mainMenu("25g - Small Ooho",0xffff,60,"Good: ",firstStringColor,"Bad: ",secondStringColor,"Back",thirdStringColor);
-//    scale.set_scale(calFactor);
-//    scale.get_units();
-//    tft.setCursor(50, 115);
-//    tft.println(scale.get_units(), 1);
-//    
-//    if(495 < scale.get_units() && 505 > scale.get_units()){
-//      goodCounter += 1;
-////      tft.setCursor(150, 50);
-////      tft.println(goodCounter);
-////      delay(1);
-//
-//      scale.power_down();
-//      delay(100);
-//      scale.power_up();
-//    }
-//    else{
-//      badCounter += 1;
-////      tft.setCursor(150, 70);
-////      tft.println(badCounter);
-////      delay(1);
-//      
-//      scale.power_down();
-//      delay(100);
-//      scale.power_up();
-//    }
-//    tft.setCursor(150, 50);
-//    tft.println(goodCounter);
-//    tft.setCursor(150, 70);
-//    tft.println(badCounter);
-//  }
-//}
+
+void Counter(){
+  if(pageNumber == 9){
+    mainMenu("25g - Small Ooho",0xffff,60,"Good: ",firstStringColor,"Bad: ",secondStringColor,"Back",thirdStringColor);
+    scale.set_scale(calibration_factor);
+    scale.get_units();
+    tft.setCursor(50, 115);
+    tft.println(abs(scale.get_units()));
+    
+    if(495 < scale.get_units() && 505 > scale.get_units()){
+      goodCounter += 1;
+//      tft.setCursor(150, 50);
+//      tft.println(goodCounter);
+//      delay(1);
+
+      scale.power_down();
+      delay(100);
+      scale.power_up();
+    }
+    else{
+      badCounter += 1;
+//      tft.setCursor(150, 70);
+//      tft.println(badCounter);
+//      delay(1);
+      
+      scale.power_down();
+      delay(100);
+      scale.power_up();
+    }
+    tft.setCursor(150, 50);
+    tft.println(goodCounter);
+    tft.setCursor(150, 70);
+    tft.println(badCounter);
+  }
+}
