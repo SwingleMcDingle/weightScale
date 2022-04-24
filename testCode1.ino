@@ -11,8 +11,6 @@ uint32_t secondStringColor = 0xC618;
 uint32_t thirdStringColor = 0xC618;
 int selectionCounter = 95;
 int pageNumber = 0;  
-unsigned int goodCounter = 0;
-unsigned int badCounter = 0;
 
 HX711 scale(PIN_WIRE_SDA, PIN_WIRE_SCL);
 
@@ -21,6 +19,7 @@ HX711 scale(PIN_WIRE_SDA, PIN_WIRE_SCL);
 
 long currentOffset;
 float calibration_factor;  
+unsigned int total = 0;
   
 void setup() {
   scale.tare();
@@ -87,7 +86,7 @@ void loop() {
 //  liveWeight();
   returnFromCalError();
   returnToBeginCalibration();
-  returnToWeightCalSettings();
+  returnFromWeightTest();
   returnToMmenuFromWeightCal();
   
   resetCounterMenu();
@@ -259,6 +258,7 @@ void beginCalibration() {
       Serial.println("iter = " + String(iter));
       Serial.println("-------------------------------------");
       // if not match
+      
       iter += 1;
       
       if (abs(data - CALWEIGHT) >= 0.005)
@@ -303,7 +303,8 @@ void beginCalibration() {
         prevData = data;
 
         //error if iteration exceeds 100
-        if(iter > 100){
+        if(iter > 100)
+        {
           delay(200);
           done = true;
           tft.fillScreen(TFT_BLACK);
@@ -369,12 +370,11 @@ void Weight(){
     scale.power_down();
     delay(500);
     scale.power_up();
-    Serial.print("cal.factor = " + String(calibration_factor));
     tft.fillRect(110,50,100,20,TFT_BLACK);
   }
 }
 
-void returnToWeightCalSettings(){
+void returnFromWeightTest(){
   if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 6){
     delay(200);
     mainMenu("Weight Cal. Settings",0xffff,10,"Begin Calibration",firstStringColor,"Weight Test",secondStringColor,"Back",thirdStringColor);
@@ -397,7 +397,7 @@ void returnToWeightCal(){
 void largeOoho(){
   if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 3 && y == 75){
     delay(200);
-    mainMenu("70g - Large Ooho",0xffff,60,"Good: ",firstStringColor,"Bad: ",secondStringColor,"Back",thirdStringColor);
+    mainMenu("70g - Large Ooho",0xffff,60,"Produced = ",firstStringColor,"Weight = ",secondStringColor,"Back",thirdStringColor);
     pageNumber = 8;
     y = 55;
   }
@@ -406,7 +406,7 @@ void largeOoho(){
 void smallOoho(){
   if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 3 && y == 55){
     delay(200);
-//    mainMenu("25g - Small Ooho",0xffff,60,"Good: ",firstStringColor,"Bad: ",secondStringColor,"Back",thirdStringColor);
+    mainMenu("25g - Small Ooho",0xffff,60,"Produced = ",firstStringColor,"Weight = ",secondStringColor,"Back",thirdStringColor);
     pageNumber = 9;
     y = 55;
   }
@@ -432,35 +432,30 @@ void backFromSmallOoho(){
 
 void Counter(){
   if(pageNumber == 9){
-    mainMenu("25g - Small Ooho",0xffff,60,"Good: ",firstStringColor,"Bad: ",secondStringColor,"Back",thirdStringColor);
-    scale.set_scale(calibration_factor);
-    scale.get_units();
-    tft.setCursor(50, 115);
-    tft.println(abs(scale.get_units()));
-    
-    if(495 < scale.get_units() && 505 > scale.get_units()){
-      goodCounter += 1;
-//      tft.setCursor(150, 50);
-//      tft.println(goodCounter);
-//      delay(1);
+    double data = abs(scale.get_units());
 
-      scale.power_down();
-      delay(100);
-      scale.power_up();
-    }
-    else{
-      badCounter += 1;
-//      tft.setCursor(150, 70);
-//      tft.println(badCounter);
-//      delay(1);
+    scale.set_scale(calibration_factor);
+    data = abs(scale.get_units());
+    Serial.println("Cal.Factor = " + String(calibration_factor));
+    Serial.println("Weight = " + String(data));
+
+    tft.setCursor(125, 70);
+    tft.println(data);
+    
+    delay(500);
+    tft.fillRect(125,70,100,20,TFT_BLACK);
+
+    if(495 < data && 505 > data){
+      total += 1;
       
       scale.power_down();
       delay(100);
       scale.power_up();
     }
     tft.setCursor(150, 50);
-    tft.println(goodCounter);
-    tft.setCursor(150, 70);
-    tft.println(badCounter);
+    tft.println(total);
+
+    delay(500);
+    tft.fillRect(150,50,100,20,TFT_BLACK);
   }
 }
