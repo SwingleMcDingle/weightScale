@@ -11,6 +11,7 @@ uint32_t secondStringColor = 0xC618;
 uint32_t thirdStringColor = 0xC618;
 int selectionCounter = 95;
 int pageNumber = 0;  
+int SENSOR = D0;
 
 HX711 scale(PIN_WIRE_SDA, PIN_WIRE_SCL);
 
@@ -33,7 +34,8 @@ void setup() {
   pinMode(WIO_5S_UP, INPUT_PULLUP);
   pinMode(WIO_5S_DOWN, INPUT_PULLUP);
   pinMode(WIO_5S_PRESS, INPUT_PULLUP);
-
+  pinMode(SENSOR, INPUT);
+  
   if (!SD.begin(SDCARD_SS_PIN, SDCARD_SPI)) {
         while (1);
     }
@@ -95,7 +97,9 @@ void loop() {
   productSelectionMenu();
   smallOoho();
   largeOoho();
-  Counter();
+  Sensor();
+  smallOohoCounter();
+  largeOohoCounter();
   backFromLargeOoho();
   backFromSmallOoho();
   returnToMmenuFromProductSelectionMenu();
@@ -257,10 +261,9 @@ void beginCalibration() {
       Serial.println("dirScale = " + String(dirScale));
       Serial.println("iter = " + String(iter));
       Serial.println("-------------------------------------");
+      
       // if not match
-      
       iter += 1;
-      
       if (abs(data - CALWEIGHT) >= 0.005)
       {
         if (abs(data - CALWEIGHT) < abs(prevData - CALWEIGHT) && direction != 1 && data < CALWEIGHT)
@@ -330,27 +333,8 @@ void beginCalibration() {
         tft.setCursor(110, 70);
         tft.println(data);
       }
-
     } // end while
   } //end if button pressed
-}
-
-void returnFromCalError(){
-  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 7 && y == 75){
-    delay(200);
-    mainMenu("Weight Cal. Settings",0xffff,10,"Begin Calibration",firstStringColor,"Weight Test",secondStringColor,"Back",thirdStringColor);
-    pageNumber = 4;
-    y = 55;
-  }
-}
-
-void returnToBeginCalibration(){
-  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 5 && y == 95){
-    delay(200);
-    mainMenu("Weight Cal. Settings",0xffff,10,"Begin Calibration",firstStringColor,"Weight Test",secondStringColor,"Back",thirdStringColor);
-    pageNumber = 4;
-    y = 55;
-  }
 }
 
 void weightTest(){
@@ -371,6 +355,24 @@ void Weight(){
     delay(500);
     scale.power_up();
     tft.fillRect(110,50,100,20,TFT_BLACK);
+  }
+}
+
+void returnFromCalError(){
+  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 7 && y == 75){
+    delay(200);
+    mainMenu("Weight Cal. Settings",0xffff,10,"Begin Calibration",firstStringColor,"Weight Test",secondStringColor,"Back",thirdStringColor);
+    pageNumber = 4;
+    y = 55;
+  }
+}
+
+void returnToBeginCalibration(){
+  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 5 && y == 95){
+    delay(200);
+    mainMenu("Weight Cal. Settings",0xffff,10,"Begin Calibration",firstStringColor,"Weight Test",secondStringColor,"Back",thirdStringColor);
+    pageNumber = 4;
+    y = 55;
   }
 }
 
@@ -412,28 +414,21 @@ void smallOoho(){
   }
 }
 
-void backFromLargeOoho(){
-  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 8 && y == 95){
-    delay(200);
-    mainMenu("Product Selection",0xffff,60,"25g",firstStringColor,"70g",secondStringColor,"Back",thirdStringColor);
-    pageNumber = 3;
-    y = 55; 
+void Sensor(){
+  if(pageNumber == 8 || pageNumber == 9){
+    int val = digitalRead(SENSOR);
+    if(val == 0){
+      Serial.println("Obstacle Detected");
+    }
+    else{
+      Serial.println("No Obstacle");
+    }
   }
 }
 
-void backFromSmallOoho(){
-  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 9 && y == 95){
-    delay(200);
-    mainMenu("Product Selection",0xffff,60,"25g",firstStringColor,"70g",secondStringColor,"Back",thirdStringColor);
-    pageNumber = 3;
-    y = 55; 
-  }
-}
-
-void Counter(){
-  if(pageNumber == 9){
+void largeOohoCounter(){
+  if(pageNumber == 8){
     double data = abs(scale.get_units());
-
     scale.set_scale(calibration_factor);
     data = abs(scale.get_units());
     Serial.println("Cal.Factor = " + String(calibration_factor));
@@ -457,5 +452,53 @@ void Counter(){
 
     delay(500);
     tft.fillRect(150,50,100,20,TFT_BLACK);
+  }
+}
+
+void smallOohoCounter(){
+  if(pageNumber == 9){
+    double data = abs(scale.get_units());
+    scale.set_scale(calibration_factor);
+    data = abs(scale.get_units());
+    Serial.println("Cal.Factor = " + String(calibration_factor));
+    Serial.println("Weight = " + String(data));
+
+    tft.setCursor(125, 70);
+    tft.println(data);
+    
+    delay(500);
+    tft.fillRect(125,70,100,20,TFT_BLACK);
+
+    if(495 < data && 505 > data){
+      total += 1;
+      
+      scale.power_down();
+      delay(100);
+      scale.power_up();
+    }
+    tft.setCursor(150, 50);
+    tft.println(total);
+
+    delay(500);
+    tft.fillRect(150,50,100,20,TFT_BLACK);
+  }
+}
+
+
+void backFromLargeOoho(){
+  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 8 && y == 95){
+    delay(200);
+    mainMenu("Product Selection",0xffff,60,"25g",firstStringColor,"70g",secondStringColor,"Back",thirdStringColor);
+    pageNumber = 3;
+    y = 55; 
+  }
+}
+
+void backFromSmallOoho(){
+  if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 9 && y == 95){
+    delay(200);
+    mainMenu("Product Selection",0xffff,60,"25g",firstStringColor,"70g",secondStringColor,"Back",thirdStringColor);
+    pageNumber = 3;
+    y = 55; 
   }
 }
