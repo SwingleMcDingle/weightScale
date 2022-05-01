@@ -15,13 +15,15 @@ int SENSOR = D0;
 
 HX711 scale(PIN_WIRE_SDA, PIN_WIRE_SCL);
 
-#define CALWEIGHT 500
+#define CALWEIGHT 502.5
 #define DEFAULT_CALIFACTOR 0
 
 long currentOffset;
 float calibration_factor;  
-unsigned int total = 0;
-  
+int total = 0;
+int good = 0;
+int lastVal = 1;
+
 void setup() {
   scale.tare();
   calibration_factor = DEFAULT_CALIFACTOR;
@@ -48,7 +50,7 @@ void setup() {
     tft.setTextColor(TFT_WHITE);
     tft.setTextSize(2);
     tft.drawString("Weight Sensor Demo", 50, 120);
-    delay(500);
+    delay(1000);
     tft.fillScreen(TFT_BLACK);   // clear screen
     tft.setTextColor(TFT_WHITE);
     tft.setTextSize(2);
@@ -77,7 +79,7 @@ void loop() {
       y = 95;
     }
    }
-  delay(200);
+//  delay(200);
   
   WeightCalMenu();
   weightCalSettings();
@@ -97,7 +99,7 @@ void loop() {
   productSelectionMenu();
   smallOoho();
   largeOoho();
-  Sensor();
+//  Sensor();
   smallOohoCounter();
   largeOohoCounter();
   backFromLargeOoho();
@@ -235,7 +237,7 @@ void beginCalibration() {
 
     //wait for button press
     while (digitalRead(WIO_5S_PRESS) == HIGH);
-    Serial.println("calibirte");
+    Serial.println("calibrate");
     tft.fillScreen(TFT_BLACK);
     tft.setTextSize(2);
     tft.drawString("Please Wait...", 50, 120);
@@ -313,7 +315,7 @@ void beginCalibration() {
           tft.fillScreen(TFT_BLACK);
           mainMenu("ERROR", 0xffff, 50,"Calibration Error",firstStringColor,"Reset",secondStringColor,"",thirdStringColor);
           pageNumber = 7;
-          y = 55;
+          y = 75;
         }
       }
 
@@ -327,7 +329,7 @@ void beginCalibration() {
         tft.fillScreen(TFT_BLACK);
         mainMenu("Calibration Complete", 0xffff,50,"Cal.Factor: ",firstStringColor,"Weight: ",secondStringColor,"Back",thirdStringColor);
         pageNumber = 5;
-        y = 55;
+        y = 95;
         tft.setCursor(170,50);
         tft.println(calibration_factor);
         tft.setCursor(110, 70);
@@ -399,7 +401,7 @@ void returnToWeightCal(){
 void largeOoho(){
   if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 3 && y == 75){
     delay(200);
-    mainMenu("70g - Large Ooho",0xffff,60,"Produced = ",firstStringColor,"Weight = ",secondStringColor,"Back",thirdStringColor);
+    mainMenu("70g - Large Ooho",0xffff,60,"Produced = ",firstStringColor,"Good = ",secondStringColor,"Back",thirdStringColor);
     pageNumber = 8;
     y = 55;
   }
@@ -408,7 +410,7 @@ void largeOoho(){
 void smallOoho(){
   if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 3 && y == 55){
     delay(200);
-    mainMenu("25g - Small Ooho",0xffff,60,"Produced = ",firstStringColor,"Weight = ",secondStringColor,"Back",thirdStringColor);
+    mainMenu("25g - Small Ooho",0xffff,60,"Produced = ",firstStringColor,"Good = ",secondStringColor,"Back",thirdStringColor);
     pageNumber = 9;
     y = 55;
   }
@@ -427,31 +429,82 @@ void Sensor(){
 }
 
 void largeOohoCounter(){
+//  scale.set_scale(calibration_factor);
+  int val = digitalRead(SENSOR);
+  float data = abs(scale.get_units());
+  
+  
   if(pageNumber == 8){
-    double data = abs(scale.get_units());
-    scale.set_scale(calibration_factor);
-    data = abs(scale.get_units());
     Serial.println("Cal.Factor = " + String(calibration_factor));
     Serial.println("Weight = " + String(data));
-
-    tft.setCursor(125, 70);
-    tft.println(data);
-    
-    delay(500);
-    tft.fillRect(125,70,100,20,TFT_BLACK);
-
-    if(495 < data && 505 > data){
-      total += 1;
+    Serial.println("val = " + String(val));
+    Serial.println("lastVal = " + String(lastVal));
+    Serial.println("Total = " + String(total));
+    Serial.println("Good = " + String(good));
+    Serial.println("-----------------------------");
+    // 0 - Ooho Detected
+    // 1 - No Object
+    if(lastVal != val){
+      if(495 < data && 505 > data && val == 0){
+        total += 1;
+        good += 1;
+        Serial.println("Ooho Detected");
+        Serial.println("In Spec");
+        
+        tft.setCursor(150, 50);
+        tft.println(total);
+        tft.setCursor(125, 70);
+        tft.println(good);
+      }
+      else if(data < 495 && val  == 0 || data > 505 && val == 0){
+        Serial.println("Ooho Detected");
+        Serial.println("Out of Spec");
+        total += 1;
+        good += 0;
+  
+        tft.setCursor(150,50);
+        tft.println(total);
+        tft.setCursor(125,70);
+        tft.println(good);
+      }
+      else{
+        Serial.println("No Object");
+        total += 0;
+        good += 0;
+  
+        tft.setCursor(150,50);
+        tft.println(total);
+        tft.setCursor(125,70);
+        tft.println(good);
+      }
+      delay(500);
       
+      tft.fillRect(150,50,100,20,TFT_BLACK); 
+      tft.fillRect(125,70,100,20,TFT_BLACK);
+    
       scale.power_down();
-      delay(100);
+      delay(500);
+      scale.power_up();
+
+      lastVal = val;
+    }
+    else{
+      lastVal = val;
+  
+      tft.setCursor(150,50);
+      tft.println(total);
+      tft.setCursor(125,70);
+      tft.println(good);
+
+      delay(500);
+      
+      tft.fillRect(150,50,100,20,TFT_BLACK); 
+      tft.fillRect(125,70,100,20,TFT_BLACK);
+    
+      scale.power_down();
+      delay(500);
       scale.power_up();
     }
-    tft.setCursor(150, 50);
-    tft.println(total);
-
-    delay(500);
-    tft.fillRect(150,50,100,20,TFT_BLACK);
   }
 }
 
