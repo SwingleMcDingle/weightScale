@@ -17,12 +17,14 @@ HX711 scale(PIN_WIRE_SDA, PIN_WIRE_SCL);
 
 #define CALWEIGHT 502.5
 #define DEFAULT_CALIFACTOR 0
+#define BUZZER_PIN WIO_BUZZER
 
 long currentOffset;
 float calibration_factor;  
 int total = 0;
 int good = 0;
 int lastVal = 1;
+uint32_t updateTime = 0;
 
 void setup() {
   scale.tare();
@@ -37,7 +39,7 @@ void setup() {
   pinMode(WIO_5S_DOWN, INPUT_PULLUP);
   pinMode(WIO_5S_PRESS, INPUT_PULLUP);
   pinMode(SENSOR, INPUT);
-  
+  pinMode(BUZZER_PIN, OUTPUT);
   if (!SD.begin(SDCARD_SS_PIN, SDCARD_SPI)) {
         while (1);
     }
@@ -59,8 +61,8 @@ void setup() {
     tft.drawString("Reset Counter", 20, 70);
     tft.drawString("Product select", 20, 90);
     mainMenu("MENU",0xffff,150,"Weight Calibration",firstStringColor,"Reset counter",secondStringColor,"Product selection",thirdStringColor);
-    
-    Serial.begin(9600);
+
+    updateTime = millis();
 }
 
 void loop() {
@@ -79,7 +81,7 @@ void loop() {
       y = 95;
     }
    }
-//  delay(200);
+  delay(200);
   
   WeightCalMenu();
   weightCalSettings();
@@ -401,7 +403,7 @@ void returnToWeightCal(){
 void largeOoho(){
   if(digitalRead(WIO_5S_PRESS) == LOW && pageNumber == 3 && y == 75){
     delay(200);
-    mainMenu("70g - Large Ooho",0xffff,60,"Produced = ",firstStringColor,"Good = ",secondStringColor,"Back",thirdStringColor);
+    mainMenu("70g - Large Ooho",0xffff,60,"Total = ",firstStringColor,"Good = ",secondStringColor,"Back",thirdStringColor);
     pageNumber = 8;
     y = 55;
   }
@@ -429,12 +431,11 @@ void Sensor(){
 }
 
 void largeOohoCounter(){
-//  scale.set_scale(calibration_factor);
-  int val = digitalRead(SENSOR);
-  float data = abs(scale.get_units());
-  
-  
   if(pageNumber == 8){
+    int val = digitalRead(SENSOR);
+    float data = abs(scale.get_units());
+    y = 95;
+    
     Serial.println("Cal.Factor = " + String(calibration_factor));
     Serial.println("Weight = " + String(data));
     Serial.println("val = " + String(val));
@@ -442,52 +443,48 @@ void largeOohoCounter(){
     Serial.println("Total = " + String(total));
     Serial.println("Good = " + String(good));
     Serial.println("-----------------------------");
+    
     // 0 - Ooho Detected
     // 1 - No Object
     if(lastVal != val){
-      if(495 < data && 505 > data && val == 0){
+      if(490 < data && 510 > data && val == 0){
         total += 1;
         good += 1;
         Serial.println("Ooho Detected");
         Serial.println("In Spec");
         
-        tft.setCursor(150, 50);
-        tft.println(total);
-        tft.setCursor(125, 70);
-        tft.println(good);
+        tft.fillRect(150,50,100,20,TFT_BLACK); 
+        tft.fillRect(125,70,100,20,TFT_BLACK);
       }
-      else if(data < 495 && val  == 0 || data > 505 && val == 0){
+      else if(data < 490 && val  == 0 || data > 510 && val == 0){
         Serial.println("Ooho Detected");
         Serial.println("Out of Spec");
         total += 1;
         good += 0;
   
-        tft.setCursor(150,50);
-        tft.println(total);
-        tft.setCursor(125,70);
-        tft.println(good);
+        tft.fillRect(150,50,100,20,TFT_BLACK); 
+        tft.fillRect(125,70,100,20,TFT_BLACK);
       }
       else{
         Serial.println("No Object");
         total += 0;
         good += 0;
-  
-        tft.setCursor(150,50);
-        tft.println(total);
-        tft.setCursor(125,70);
-        tft.println(good);
+
+        tft.fillRect(150,50,100,20,TFT_BLACK); 
+        tft.fillRect(125,70,100,20,TFT_BLACK);  
       }
-      delay(500);
+      lastVal = val;
       
-      tft.fillRect(150,50,100,20,TFT_BLACK); 
-      tft.fillRect(125,70,100,20,TFT_BLACK);
+      tft.setCursor(150,50);
+      tft.println(total);
+      tft.setCursor(125,70);
+      tft.println(good);
+
+      delay(500);
     
       scale.power_down();
-      delay(500);
       scale.power_up();
-
-      lastVal = val;
-    }
+    } //Execute this logic if sensor reading has changed
     else{
       lastVal = val;
   
@@ -497,16 +494,14 @@ void largeOohoCounter(){
       tft.println(good);
 
       delay(500);
-      
-      tft.fillRect(150,50,100,20,TFT_BLACK); 
-      tft.fillRect(125,70,100,20,TFT_BLACK);
     
       scale.power_down();
-      delay(500);
       scale.power_up();
+    }// Keep the values the same if is the same
     }
   }
 }
+
 
 void smallOohoCounter(){
   if(pageNumber == 9){
