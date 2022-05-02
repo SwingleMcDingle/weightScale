@@ -24,7 +24,6 @@ float calibration_factor;
 int total = 0;
 int good = 0;
 int lastVal = 1;
-uint32_t updateTime = 0;
 
 void setup() {
   scale.tare();
@@ -61,8 +60,6 @@ void setup() {
     tft.drawString("Reset Counter", 20, 70);
     tft.drawString("Product select", 20, 90);
     mainMenu("MENU",0xffff,150,"Weight Calibration",firstStringColor,"Reset counter",secondStringColor,"Product selection",thirdStringColor);
-
-    updateTime = millis();
 }
 
 void loop() {
@@ -155,6 +152,8 @@ void resetCounterMenu(){
     delay(200);
     pageNumber = 2;
     mainMenu("",0xffff,0,"Counter cleared!",firstStringColor,"back",secondStringColor,"",thirdStringColor);
+    total = 0;
+    good = 0;
   }
 }
 
@@ -442,6 +441,7 @@ void largeOohoCounter(){
     Serial.println("lastVal = " + String(lastVal));
     Serial.println("Total = " + String(total));
     Serial.println("Good = " + String(good));
+    Serial.println("isDigit = " + String(total % 10));
     Serial.println("-----------------------------");
     
     // 0 - Ooho Detected
@@ -498,7 +498,12 @@ void largeOohoCounter(){
       scale.power_down();
       scale.power_up();
     }// Keep the values the same if is the same
-    }
+    if((total % 10) == 0 && total != 0){
+      analogWrite(WIO_BUZZER, 128);
+      delay(1000);
+      analogWrite(WIO_BUZZER, 0);
+      delay(1000);
+    }//Buzzer when totoal reaches 50
   }
 }
 
